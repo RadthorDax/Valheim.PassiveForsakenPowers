@@ -19,12 +19,14 @@ namespace PassiveForsakenPowers
         public static ConfigEntry<int> nexusID;
         public static ConfigEntry<bool> modEnabled;
         public static ConfigEntry<bool> allPowers;
+        public static ConfigEntry<bool> onlyOnePower;
 
         private void Awake()
         {
             nexusID = Config.Bind<int>("General", "NexusID", 390, "NexusMods ID for updates.");
             modEnabled = Config.Bind<bool>("General", "Enabled", true, "Enable the mod.");
             allPowers = Config.Bind<bool>("General", "AllPowers", false, "Always apply all the Forsaken Powers regardless of character and world progress.");
+            onlyOnePower = Config.Bind<bool>("General", "OnlyOnePower", true, "Only apply a single power that you select at the standing stones. The AllPowers setting will override this.");
 
             if (!modEnabled.Value)
                 return;
@@ -50,6 +52,7 @@ namespace PassiveForsakenPowers
                     {
                         se.m_ttl = 0f;
                         se.m_cooldown = 0f;
+                        Debug.Log($"[{PluginName}] Made {se.name} status effect passive.");
                     }
                 }
             }
@@ -92,6 +95,20 @@ namespace PassiveForsakenPowers
                 player.Field("m_trophies").GetValue<HashSet<string>>().Add(trophy);
 
                 Debug.Log($"[{PluginName}] Added {trophy} and applied associated forsaken power.");
+
+                if (onlyOnePower.Value && !allPowers.Value)
+                {
+                    SEMan sem = Player.m_localPlayer.GetSEMan();
+                    List<string> removePowers = new List<string>();
+                    foreach (StatusEffect se in sem.GetStatusEffects())
+                        if (se.name.StartsWith("GP_") && se.name != trophy)
+                            removePowers.Add(se.name);
+                    foreach (string power in removePowers)
+                    {
+                        sem.RemoveStatusEffect(power, true);
+                        Debug.Log($"[{PluginName}] Removed {power} forsaken power.");
+                    }
+                }
             }
         }
 
@@ -139,11 +156,21 @@ namespace PassiveForsakenPowers
                 { "TrophyGoblinKing", "GP_Yagluth" },
             };
 
-            static void Prefix()
+            static void Prefix(ref Player __instance)
             {
                 if (!allPowers.Value)
                 {
-                    List<string> trophies = Player.m_localPlayer.GetTrophies();
+                    if (onlyOnePower.Value)
+                    {
+                        string power = __instance.GetGuardianPowerName();
+                        if (power == null)
+                            return;
+                        __instance.GetSEMan().AddStatusEffect(power, true);
+                        Debug.Log($"[{PluginName}] Applying {power} forsaken power.");
+                        return;
+                    }
+
+                    List<string> trophies = __instance.GetTrophies();
                     foreach (string trophy in trophies)
                         if (trophyPowers.ContainsKey(trophy))
                             powers[trophyPowers[trophy]] = true;
@@ -159,12 +186,12 @@ namespace PassiveForsakenPowers
                                 powers[itemStand.m_guardianPower.name] = true;
                     }
                 }
-                foreach (var power in powers)
+                foreach (var powerKV in powers)
                 {
-                    if (power.Value || allPowers.Value)
+                    if (powerKV.Value || allPowers.Value)
                     {
-                        Player.m_localPlayer.GetSEMan().AddStatusEffect(power.Key, true);
-                        Debug.Log($"[{PluginName}] Applying {power.Key} forsaken power.");
+                        Traverse.Create(__instance.GetSEMan()).Method("Internal_AddStatusEffect", powerKV.Key, true).GetValue();
+                        Debug.Log($"[{PluginName}] Applying {powerKV.Key} forsaken power.");
                     }
                 }
             }
