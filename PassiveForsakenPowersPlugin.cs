@@ -12,7 +12,7 @@ namespace PassiveForsakenPowers
     {
         public const string PluginGUID = "radthordax.valheim.PassiveForsakenPowers";
         public const string PluginName = "Passive Forsaken Powers";
-        public const string PluginVersion = "1.0.0";
+        public const string PluginVersion = "1.0.1";
 
         private static Harmony harmony;
 
@@ -182,7 +182,7 @@ namespace PassiveForsakenPowers
                     {
                         ItemStand[] itemStands = FindObjectsOfType<ItemStand>();
                         foreach (ItemStand itemStand in itemStands)
-                            if (itemStand.m_guardianPower != null && powers.ContainsKey(itemStand.m_guardianPower.name))
+                            if (itemStand.m_guardianPower != null && itemStand.HaveAttachment() && !itemStand.m_canBeRemoved && powers.ContainsKey(itemStand.m_guardianPower.name))
                                 powers[itemStand.m_guardianPower.name] = true;
                     }
                 }
